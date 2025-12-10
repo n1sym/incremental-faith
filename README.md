@@ -2,6 +2,8 @@
 
 ⛩️ 信仰の道 - A minimal browser-based incremental game
 
+🎮 **Play now:** https://n1sym.github.io/incremental-faith/
+
 ## Game Description
 
 A simple incremental game where you build faith, attract worshippers, and collect offerings at your shrine.
