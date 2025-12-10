@@ -11,7 +11,8 @@ const CONFIG = {
     worshippersPerFaith: 0.1, // 10 faith = 1 worshipper
     offeringsPerWorshipper: 0.5, // 1 worshipper = 0.5 offerings per second
     autoSaveInterval: 5000, // 5 seconds
-    gameTickInterval: 1000 // 1 second for auto-generation
+    gameTickInterval: 1000, // 1 second for auto-generation
+    maxOfflineTime: 3600 * 24 // Max 24 hours of offline progress (in seconds)
 };
 
 // DOM Elements
@@ -127,7 +128,7 @@ function loadGame() {
             // Calculate offline progress
             if (parsedData.timestamp) {
                 const timeDiff = Date.now() - parsedData.timestamp;
-                const secondsOffline = timeDiff / 1000;
+                const secondsOffline = Math.min(timeDiff / 1000, CONFIG.maxOfflineTime); // Cap offline time
                 
                 // Generate offerings for offline time
                 const offlineOfferings = gameState.worshippers * CONFIG.offeringsPerWorshipper * secondsOffline;
