@@ -1,25 +1,31 @@
 // Game State
 let gameState = {
-    offerings: 0,
+    coins: 0,
     faith: 0,
-    worshippers: 0
+    worshippers: 0,
+    faithUpgradeLevel: 0,
+    faithPerSecond: 1
 };
 
 // Game Configuration
 const CONFIG = {
-    faithPerClick: 1,
     worshippersPerFaith: 0.1, // 10 faith = 1 worshipper
-    offeringsPerWorshipper: 0.5, // 1 worshipper = 0.5 offerings per second
+    coinsPerWorshipper: 0.5, // 1 worshipper = 0.5 coins per second
     autoSaveInterval: 5000, // 5 seconds
-    gameTickInterval: 1000, // 1 second for auto-generation
-    maxOfflineTime: 3600 * 24 // Max 24 hours of offline progress (in seconds)
+    gameTickInterval: 100, // 100ms for smooth updates
+    faithUpgradeBaseCost: 10,
+    faithUpgradeCostMultiplier: 1.5,
+    faithUpgradeIncrement: 0.5
 };
 
 // DOM Elements
-const offeringValueEl = document.getElementById('offeringValue');
+const coinValueEl = document.getElementById('coinValue');
+const coinRateEl = document.getElementById('coinRate');
 const faithValueEl = document.getElementById('faithValue');
+const faithRateEl = document.getElementById('faithRate');
 const worshipperValueEl = document.getElementById('worshipperValue');
 const prayButton = document.getElementById('prayButton');
+const upgradeCostEl = document.getElementById('upgradeCost');
 
 // Initialize game
 function init() {
@@ -28,33 +34,48 @@ function init() {
     startGameLoop();
     startAutoSave();
     
-    // Add click event to pray button
-    prayButton.addEventListener('click', pray);
+    // Add click event to pray button for upgrades
+    prayButton.addEventListener('click', upgradeFaith);
 }
 
-// Pray action - increases faith
+// Calculate upgrade cost
+function getUpgradeCost() {
+    return Math.floor(CONFIG.faithUpgradeBaseCost * Math.pow(CONFIG.faithUpgradeCostMultiplier, gameState.faithUpgradeLevel));
+}
+
+// Upgrade faith generation
+function upgradeFaith() {
+    const cost = getUpgradeCost();
+    if (gameState.faith >= cost) {
+        gameState.faith -= cost;
+        gameState.faithUpgradeLevel++;
+        gameState.faithPerSecond += CONFIG.faithUpgradeIncrement;
+        updateUI();
+    }
+}
+
+// Pray action - no longer used, but keeping for compatibility
 function pray() {
-    gameState.faith += CONFIG.faithPerClick;
-    updateUI();
-    animateStat('faithStat');
+    // Deprecated - faith now auto-generates
 }
 
 // Game loop - handles automatic resource generation
 function gameLoop() {
+    const deltaTime = CONFIG.gameTickInterval / 1000; // Convert to seconds
+    
+    // Auto-generate faith
+    gameState.faith += gameState.faithPerSecond * deltaTime;
+    
     // Calculate worshippers based on faith
     const targetWorshippers = Math.floor(gameState.faith * CONFIG.worshippersPerFaith);
     
-    // Gradually increase worshippers towards target
-    if (gameState.worshippers < targetWorshippers) {
-        gameState.worshippers = targetWorshippers;
-        animateStat('worshipperStat');
-    }
+    // Update worshippers towards target (can increase or decrease)
+    gameState.worshippers = targetWorshippers;
     
-    // Generate offerings based on worshippers
+    // Generate coins based on worshippers
     if (gameState.worshippers > 0) {
-        const offeringsGenerated = gameState.worshippers * CONFIG.offeringsPerWorshipper * (CONFIG.gameTickInterval / 1000);
-        gameState.offerings += offeringsGenerated;
-        animateStat('offeringStat');
+        const coinsGenerated = gameState.worshippers * CONFIG.coinsPerWorshipper * deltaTime;
+        gameState.coins += coinsGenerated;
     }
     
     updateUI();
@@ -62,29 +83,44 @@ function gameLoop() {
 
 // Update UI with current game state
 function updateUI() {
-    offeringValueEl.textContent = formatNumber(gameState.offerings);
+    // Update coin display
+    coinValueEl.textContent = formatNumber(gameState.coins);
+    const coinsPerSec = gameState.worshippers * CONFIG.coinsPerWorshipper;
+    coinRateEl.textContent = formatNumber(coinsPerSec, 1) + '/sec';
+    
+    // Update faith display
     faithValueEl.textContent = formatNumber(gameState.faith);
+    faithRateEl.textContent = formatNumber(gameState.faithPerSecond, 1) + '/sec';
+    
+    // Update worshipper display
     worshipperValueEl.textContent = formatNumber(gameState.worshippers);
-}
-
-// Format numbers for display
-function formatNumber(num) {
-    if (num >= 1000000) {
-        return (num / 1000000).toFixed(2) + 'M';
-    } else if (num >= 1000) {
-        return (num / 1000).toFixed(2) + 'K';
+    
+    // Update upgrade button
+    const upgradeCost = getUpgradeCost();
+    upgradeCostEl.textContent = formatNumber(upgradeCost);
+    
+    // Disable button if can't afford
+    if (gameState.faith >= upgradeCost) {
+        prayButton.disabled = false;
     } else {
-        return Math.floor(num).toString();
+        prayButton.disabled = true;
     }
 }
 
-// Animate stat update
+// Format numbers for display
+function formatNumber(num, decimals = 0) {
+    if (num >= 1000000) {
+        return (num / 1000000).toFixed(decimals) + 'M';
+    } else if (num >= 1000) {
+        return (num / 1000).toFixed(decimals) + 'K';
+    } else {
+        return num.toFixed(decimals);
+    }
+}
+
+// Animate stat update - deprecated, keeping for compatibility
 function animateStat(statId) {
-    const statEl = document.getElementById(statId);
-    statEl.classList.add('updated');
-    setTimeout(() => {
-        statEl.classList.remove('updated');
-    }, 300);
+    // Animations removed per requirements
 }
 
 // Start game loop
@@ -121,22 +157,13 @@ function loadGame() {
             const parsedData = JSON.parse(savedData);
             
             // Restore game state
-            gameState.offerings = parsedData.offerings || 0;
+            gameState.coins = parsedData.coins ?? parsedData.offerings ?? 0; // Support old saves
             gameState.faith = parsedData.faith || 0;
             gameState.worshippers = parsedData.worshippers || 0;
+            gameState.faithUpgradeLevel = parsedData.faithUpgradeLevel || 0;
+            gameState.faithPerSecond = parsedData.faithPerSecond || 1;
             
-            // Calculate offline progress
-            if (parsedData.timestamp) {
-                const timeDiff = Date.now() - parsedData.timestamp;
-                const secondsOffline = Math.min(timeDiff / 1000, CONFIG.maxOfflineTime); // Cap offline time
-                
-                // Generate offerings for offline time
-                const offlineOfferings = gameState.worshippers * CONFIG.offeringsPerWorshipper * secondsOffline;
-                if (offlineOfferings > 0) {
-                    gameState.offerings += offlineOfferings;
-                    console.log(`Offline progress: +${offlineOfferings.toFixed(2)} offerings`);
-                }
-            }
+            // No offline progress per requirements
             
             console.log('Game loaded:', gameState);
         } else {
