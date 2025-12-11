@@ -69,10 +69,8 @@ function gameLoop() {
     // Calculate worshippers based on faith
     const targetWorshippers = Math.floor(gameState.faith * CONFIG.worshippersPerFaith);
     
-    // Gradually increase worshippers towards target
-    if (gameState.worshippers < targetWorshippers) {
-        gameState.worshippers = targetWorshippers;
-    }
+    // Update worshippers towards target (can increase or decrease)
+    gameState.worshippers = targetWorshippers;
     
     // Generate coins based on worshippers
     if (gameState.worshippers > 0) {
@@ -159,7 +157,7 @@ function loadGame() {
             const parsedData = JSON.parse(savedData);
             
             // Restore game state
-            gameState.coins = parsedData.coins || parsedData.offerings || 0; // Support old saves
+            gameState.coins = parsedData.coins ?? parsedData.offerings ?? 0; // Support old saves
             gameState.faith = parsedData.faith || 0;
             gameState.worshippers = parsedData.worshippers || 0;
             gameState.faithUpgradeLevel = parsedData.faithUpgradeLevel || 0;
